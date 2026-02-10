@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>תו חכם - תמלול שירים לתווים עם AI</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- abcjs for sheet music -->
+    <script src="https://cdn.jsdelivr.net/npm/abcjs@6.2.3/dist/abcjs-basic-min.js"></script>
+    
+    <!-- Tone.js for audio playback -->
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Rubik', sans-serif;
+        }
+        
+        .piano-key {
+            transition: all 0.1s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .piano-key:hover {
+            filter: brightness(1.2);
+        }
+        
+        .piano-key.active {
+            filter: brightness(1.5);
+            transform: translateY(2px);
+        }
+        
+        .white-key {
+            background: linear-gradient(to bottom, #ffffff 0%, #f0f0f0 100%);
+            border: 1px solid #333;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        
+        .black-key {
+            background: linear-gradient(to bottom, #2a2a2a 0%, #000000 100%);
+            border: 1px solid #000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        
+        .falling-note {
+            position: absolute;
+            border-radius: 4px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        
+        #pianoRollCanvas {
+            background: linear-gradient(to bottom, #1a1a2e 0%, #16213e 100%);
+        }
+        
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tab-active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #1e1b4b 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    
+    <!-- Main Container -->
+    <div class="gradient-bg min-h-screen py-8 px-4">
+        
+        <!-- Header -->
+        <div class="max-w-7xl mx-auto mb-8 text-center">
+            <h1 class="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                🎵 תו חכם
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-300">תמלול שירים לתווים עם AI</p>
+        </div>
+        
+        <!-- Main Screen -->
+        <div id="mainScreen" class="max-w-4xl mx-auto bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
+            
+            <!-- API Key Section -->
+            <div class="mb-6">
+                <label class="block text-lg font-semibold mb-2">🔑 Gemini API Key</label>
+                <div class="flex gap-2">
+                    <input 
+                        type="password" 
+                        id="apiKeyInput" 
+                        placeholder="הזן את ה-API Key שלך"
+                        class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button 
+                        onclick="saveApiKey()" 
+                        class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold transition"
+                    >
+                        שמור
+                    </button>
+                </div>
+                <p class="text-sm text-gray-400 mt-2">
+                    ה-API Key נשמר מקומי במכשירך בלבד | 
+                    <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-blue-400 hover:underline">קבל API Key חינם</a>
+                </p>
+            </div>
+            
+            <!-- File Upload -->
+            <div class="mb-6">
+                <label class="block text-lg font-semibold mb-2">🎼 העלה שיר</label>
+                <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-blue-500 transition">
+                    <input 
+                        type="file" 
+                        id="audioFileInput" 
+                        accept="audio/mp3,audio/wav,audio/mpeg"
+                        class="hidden"
+                        onchange="handleFileUpload(event)"
+                    />
+                    <button 
+                        onclick="document.getElementById('audioFileInput').click()" 
+                        class="bg-purple-600 hover:bg-purple-700 px-8 py-4 rounded-lg font-semibold text-lg transition"
+                    >
+                        📁 בחר קובץ אודיו
+                    </button>
+                    <p class="text-gray-400 mt-3">MP3 או WAV, עד 15MB</p>
+                    <p id="fileName" class="text-blue-400 mt-2 font-semibold"></p>
+                </div>
+            </div>
+            
+            <!-- Instrument Selection -->
+            <div class="mb-6">
+                <label class="block text-lg font-semibold mb-2">🎹 בחר כלי</label>
+                <select 
+                    id="instrumentSelect" 
+                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="piano">פסנתר 🎹</option>
+                    <option value="guitar" disabled>גיטרה 🎸 (בקרוב)</option>
+                </select>
+            </div>
+            
+            <!-- Demo Songs -->
+            <div class="mb-6">
+                <label class="block text-lg font-semibold mb-2">🎵 או נסה שיר לדוגמה</label>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button onclick="loadDemoSong('twinkle')" class="bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition">
+                        ⭐ Twinkle Twinkle
+                    </button>
+                    <button onclick="loadDemoSong('scale')" class="bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition">
+                        🎼 סולם דו מז'ור
+                    </button>
+                    <button onclick="loadDemoSong('happy')" class="bg-gray-700 hover:bg-gray-600 px-4 py-3 rounded-lg transition">
+                        😊 יום הולדת שמח
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Analyze Button -->
+            <button 
+                id="analyzeBtn"
+                onclick="analyzeWithGemini()" 
+                disabled
+                class="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed px-8 py-4 rounded-lg font-bold text-xl transition shadow-lg"
+            >
+                🚀 נתח עם Gemini AI
+            </button>
+            
+            <!-- Loading State -->
+            <div id="loadingState" class="hidden mt-6 text-center">
+                <div class="loader mx-auto mb-4"></div>
+                <p class="text-lg">מנתח את השיר... זה יכול לקחת 20-60 שניות ⏳</p>
+                <p class="text-sm text-gray-400 mt-2">ה-AI מקשיב לשיר ומזהה את התווים</p>
+            </div>
+        </div>
+        
+        <!-- Results Screen -->
+        <div id="resultsScreen" class="hidden max-w-7xl mx-auto mt-8">
+            
+            <!-- Tabs -->
+            <div class="flex gap-4 mb-6 justify-center flex-wrap">
+                <button 
+                    id="sheetTab" 
+                    onclick="switchTab('sheet')" 
+                    class="tab-active px-8 py-3 rounded-lg font-semibold text-lg transition shadow-lg"
+                >
+                    🎼 תווים
+                </button>
+                <button 
+                    id="visualTab" 
+                    onclick="switchTab('visual')" 
+                    class="bg-gray-700 hover:bg-gray-600 px-8 py-3 rounded-lg font-semibold text-lg transition"
+                >
+                    🎹 הדמיה אינטראקטיבית
+                </button>
+            </div>
+            
+            <!-- Sheet Music Tab -->
+            <div id="sheetContent" class="bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
+                <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
+                    <h2 class="text-2xl font-bold">תווים מוזיקליים</h2>
+                    <div class="flex gap-3">
+                        <button onclick="downloadMIDI()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg transition">
+                            💾 הורד MIDI
+                        </button>
+                        <button onclick="resetApp()" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg transition">
+                            🔄 שיר חדש
+                        </button>
+                    </div>
+                </div>
+                <div id="sheetMusicContainer" class="bg-white rounded-lg p-6 overflow-auto" style="direction: ltr;"></div>
+            </div>
+            
+            <!-- Visual Tab -->
+            <div id="visualContent" class="hidden bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
+                
+                <!-- Controls -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+                        <h2 class="text-2xl font-bold">🎹 פסנתר אינטראקטיבי</h2>
+                        <button onclick="resetApp()" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg transition">
+                            🔄 שיר חדש
+                        </button>
+                    </div>
+                    
+                    <!-- Playback Controls -->
+                    <div class="flex gap-3 items-center flex-wrap">
+                        <button id="playBtn" onclick="togglePlay()" class="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-lg font-semibold transition">
+                            ▶️ נגן
+                        </button>
+                        <button onclick="stopPlayback()" class="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg transition">
+                            ⏹️ עצור
+                        </button>
+                        
+                        <div class="flex items-center gap-2">
+                            <label class="font-semibold">מהירות:</label>
+                            <select id="speedSelect" onchange="changeSpeed()" class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2">
+                                <option value="0.5">0.5x</option>
+                                <option value="0.75">0.75x</option>
+                                <option value="1" selected>1x</option>
+                                <option value="1.25">1.25x</option>
+                                <option value="1.5">1.5x</option>
+                                <option value="2">2x</option>
+                            </select>
+                        </div>
+                        
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="loopCheckbox" class="w-5 h-5">
+                            <span class="font-semibold">🔁 חזרה</span>
+                        </label>
+                        
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="playAlongCheckbox" class="w-5 h-5">
+                            <span class="font-semibold">🎮 מצב Play-Along</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Piano Roll Canvas -->
+                <div class="mb-6 bg-gray-900 rounded-lg overflow-hidden shadow-2xl border-2 border-blue-500/30">
+                    <canvas 
+                        id="pianoRollCanvas" 
+                        class="w-full"
+                        style="height: 400px;"
+                    ></canvas>
+                </div>
+                
+                <!-- Virtual Piano Keyboard -->
+                <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+                    <div id="pianoKeyboard" class="relative" style="height: 200px; min-width: 1200px;"></div>
+                </div>
+                
+                <!-- Info -->
+                <div class="mt-4 text-center text-gray-400">
+                    <p>💡 לחץ על המקשים או השתמש במקלדת המחשב לנגינה</p>
+                </div>
+            </div>
+            
+        </div>
+        
+    </div>
+
+    <script type="module">
+        // ============================================
+        // Global State
+        // ============================================
+        
+        let currentFile = null;
+        let apiKey = localStorage.getItem('geminiApiKey') || '';
+        let analysisResult = null;
+        let isPlaying = false;
+        let currentNoteIndex = 0;
+        let playbackSpeed = 1;
+        let animationFrameId = null;
+        let synth = null;
+        let pianoRollContext = null;
+        let pianoKeys = [];
+        
+        // Initialize API Key if exists
+        if (apiKey) {
+            document.getElementById('apiKeyInput').value = apiKey;
+        }
+        
+        // ============================================
+        // API Key Management
+        // ============================================
+        
+        window.saveApiKey = function() {
+            const input = document.getElementById('apiKeyInput');
+            const key = input.value.trim();
+            
+            if (!key) {
+                alert('נא להזין API Key');
+                return;
+            }
+            
+            localStorage.setItem('geminiApiKey', key);
+            apiKey = key;
+            alert('✅ API Key נשמר בהצלחה!');
+            updateAnalyzeButton();
+        };
+        
+        // ============================================
+        // File Upload
+        // ============================================
+        
+        window.handleFileUpload = function(event) {
+            const file = event.target.files[0];
+            
+            if (!file) return;
+            
+            // Check file size (15MB max)
+            if (file.size > 15 * 1024 * 1024) {
+                alert('❌ הקובץ גדול מדי. מקסימום 15MB');
+                return;
+            }
+            
+            // Check file type
+            if (!file.type.match('audio.*')) {
+                alert('❌ נא להעלות קובץ אודיו בלבד');
+                return;
+            }
+            
+            currentFile = file;
+            document.getElementById('fileName').textContent = `✅ ${file.name}`;
+            updateAnalyzeButton();
+        };
+        
+        // ============================================
+        // Demo Songs
+        // ============================================
+        
+        window.loadDemoSong = function(song) {
+            const demos = {
+                twinkle: {
+                    name: 'Twinkle Twinkle Little Star',
+                    abcNotation: `X:1
+T:Twinkle Twinkle Little Star
+M:4/4
+L:1/4
+K:C
+C C G G | A A G2 | F F E E | D D C2 |
+G G F F | E E D2 | G G F F | E E D2 |
+C C G G | A A G2 | F F E E | D D C2 |]`,
+                    notes: [
+                        {pitch: 'C4', startTime: 0, duration: 0.5, velocity: 80},
+                        {pitch: 'C4', startTime: 0.5, duration: 0.5, velocity: 80},
+                        {pitch: 'G4', startTime: 1, duration: 0.5, velocity: 80},
+                        {pitch: 'G4', startTime: 1.5, duration: 0.5, velocity: 80},
+                        {pitch: 'A4', startTime: 2, duration: 0.5, velocity: 80},
+                        {pitch: 'A4', startTime: 2.5, duration: 0.5, velocity: 80},
+                        {pitch: 'G4', startTime: 3, duration: 1, velocity: 80},
+                        {pitch: 'F4', startTime: 4, duration: 0.5, velocity: 80},
+                        {pitch: 'F4', startTime: 4.5, duration: 0.5, velocity: 80},
+                        {pitch: 'E4', startTime: 5, duration: 0.5, velocity: 80},
+                        {pitch: 'E4', startTime: 5.5, duration: 0.5, velocity: 80},
+                        {pitch: 'D4', startTime: 6, duration: 0.5, velocity: 80},
+                        {pitch: 'D4', startTime: 6.5, duration: 0.5, velocity: 80},
+                        {pitch: 'C4', startTime: 7, duration: 1, velocity: 80},
+                    ],
+                    bpm: 120,
+                    keySignature: 'C',
+                    timeSignature: '4/4'
+                },
+                scale: {
+                    name: 'C Major Scale',
+                    abcNotation: `X:1
+T:C Major Scale
+M:4/4
+L:1/8
+K:C
+C D E F G A B c | c B A G F E D C |]`,
+                    notes: [
+                        {pitch: 'C4', startTime: 0, duration: 0.5, velocity: 80},
+                        {pitch: 'D4', startTime: 0.5, duration: 0.5, velocity: 80},
+                        {pitch: 'E4', startTime: 1, duration: 0.5, velocity: 80},
+                        {pitch: 'F4', startTime: 1.5, duration: 0.5, velocity: 80},
+                        {pitch: 'G4', startTime: 2, duration: 0.5, velocity: 80},
+                        {pitch: 'A4', startTime: 2.5, duration: 0.5, velocity: 80},
+                        {pitch: 'B4', startTime: 3, duration: 0.5, velocity: 80},
+                        {pitch: 'C5', startTime: 3.5, duration: 0.5, velocity: 80},
+                        {pitch: 'C5', startTime: 4, duration: 0.5, velocity: 80},
+                        {pitch: 'B4', startTime: 4.5, duration: 0.5, velocity: 80},
+                        {pitch: 'A4', startTime: 5, duration: 0.5, velocity: 80},
+                        {pitch: 'G4', startTime: 5.5, duration: 0.5, velocity: 80},
+                        {pitch: 'F4', startTime: 6, duration: 0.5, velocity: 80},
+                        {pitch: 'E4', startTime: 6.5, duration: 0.5, velocity: 80},
+                        {pitch: 'D4', startTime: 7, duration: 0.5, velocity: 80},
+                        {pitch: 'C4', startTime: 7.5, duration: 0.5, velocity: 80},
+                    ],
+                    bpm: 120,
+                    keySignature: 'C',
+                    timeSignature: '4/4'
+                },
+                happy: {
+                    name: 'Happy Birthday',
+                    abcNotation: `X:1
+T:Happy Birthday
+M:3/4
+L:1/4
+K:C
+G/2G/2 | A G c | B2 G/2G/2 | A G d | c2 G/2G/2 |
+g e c | B A F/2F/2 | e c d | c2 |]`,
+                    notes: [
+                        {pitch: 'G4', startTime: 0, duration: 0.25, velocity: 80},
+                        {pitch: 'G4', startTime: 0.25, duration: 0.25, velocity: 80},
+                        {pitch: 'A4', startTime: 0.5, duration: 0.5, velocity: 80},
+                        {pitch: 'G4', startTime: 1, duration: 0.5, velocity: 80},
+                        {pitch: 'C5', startTime: 1.5, duration: 0.5, velocity: 80},
+                        {pitch: 'B4', startTime: 2, duration: 1, velocity: 80},
+                        {pitch: 'G4', startTime: 3, duration: 0.25, velocity: 80},
+                        {pitch: 'G4', startTime: 3.25, duration: 0.25, velocity: 80},
+                        {pitch: 'A4', startTime: 3.5, duration: 0.5, velocity: 80},
+                        {pitch: 'G4', startTime: 4, duration: 0.5, velocity: 80},
+                        {pitch: 'D5', startTime: 4.5, duration: 0.5, velocity: 80},
+                        {pitch: 'C5', startTime: 5, duration: 1, velocity: 80},
+                    ],
+                    bpm: 120,
+                    keySignature: 'C',
+                    timeSignature: '3/4'
+                }
+            };
+            
+            const demoData = demos[song];
+            if (demoData) {
+                analysisResult = demoData;
+                currentFile = { name: demoData.name };
+                document.getElementById('fileName').textContent = `✅ ${demoData.name} (דמו)`;
+                showResults();
+            }
+        };
+        
+        // ============================================
+        // Analyze with Gemini
+        // ============================================
+        
+        window.analyzeWithGemini = async function() {
+            if (!apiKey) {
+                alert('❌ נא להזין ולשמור API Key תחילה');
+                return;
+            }
+            
+            if (!currentFile) {
+                alert('❌ נא להעלות קובץ אודיו תחילה');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('analyzeBtn').disabled = true;
+            
+            try {
+                // Convert audio file to base64
+                const base64Audio = await fileToBase64(currentFile);
+                
+                // Prepare the prompt for Gemini
+                const prompt = `אנא נתח את השיר המצורף וחלץ את התווים המוזיקליים.
+החזר תשובה בפורמט JSON בלבד, ללא טקסט נוסף, במבנה הבא:
+
+{
+  "abcNotation": "תווים בפורמט ABC Notation (X:1\\nT:Title\\nM:4/4\\nL:1/4\\nK:C\\nC D E F | G A B c |])",
+  "notes": [
+    {"pitch": "C4", "startTime": 0.0, "duration": 0.5, "velocity": 80},
+    {"pitch": "D4", "startTime": 0.5, "duration": 0.5, "velocity": 80}
+  ],
+  "bpm": 120,
+  "keySignature": "C",
+  "timeSignature": "4/4"
+}
+
+הערות חשובות:
+- pitch: שם התו + אוקטבה (למשל: C4, F#5, Bb3)
+- startTime: זמן התחלה בשניות
+- duration: אורך התו בשניות
+- velocity: עוצמה (0-127)
+- abcNotation: תווים בפורמט ABC מלא ותקין
+- זהה את כל התווים בשיר בצורה מדויקת ככל האפשר
+
+החזר רק את ה-JSON, ללא טקסט נוסף.`;
+                
+                // Call Gemini API
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                {
+                                    inline_data: {
+                                        mime_type: currentFile.type || 'audio/mpeg',
+                                        data: base64Audio
+                                    }
+                                }
+                            ]
+                        }]
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Gemini API Error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Extract the response text
+                let responseText = data.candidates[0].content.parts[0].text;
+                
+                // Clean the response (remove markdown code blocks if present)
+                responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                
+                // Parse the JSON
+                analysisResult = JSON.parse(responseText);
+                
+                // Show results
+                showResults();
+                
+            } catch (error) {
+                console.error('Error analyzing:', error);
+                alert(`❌ שגיאה בניתוח: ${error.message}\n\nודא שה-API Key תקין והקובץ הוא אודיו תקין.`);
+            } finally {
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        };
+        
+        // ============================================
+        // Helper: File to Base64
+        // ============================================
+        
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // ============================================
+        // Show Results
+        // ============================================
+        
+        function showResults() {
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('resultsScreen').classList.remove('hidden');
+            
+            // Render sheet music
+            renderSheetMusic();
+            
+            // Initialize piano
+            initializePiano();
+            
+            // Initialize Tone.js synth
+            initializeSynth();
+        }
+        
+        // ============================================
+        // Render Sheet Music (abcjs)
+        // ============================================
+        
+        function renderSheetMusic() {
+            const container = document.getElementById('sheetMusicContainer');
+            container.innerHTML = '';
+            
+            if (analysisResult && analysisResult.abcNotation) {
+                try {
+                    ABCJS.renderAbc('sheetMusicContainer', analysisResult.abcNotation, {
+                        responsive: 'resize',
+                        scale: 1.3,
+                        staffwidth: 800,
+                        add_classes: true,
+                        clickListener: null
+                    });
+                    
+                    console.log('[v0] ABC notation rendered successfully');
+                } catch (error) {
+                    console.error('[v0] Error rendering ABC:', error);
+                    container.innerHTML = `<p class="text-red-500 text-center p-8">שגיאה בהצגת התווים: ${error.message}</p>`;
+                }
+            } else {
+                container.innerHTML = '<p class="text-yellow-500 text-center p-8">לא נמצאו תווים להצגה</p>';
+            }
+        }
+        
+        // ============================================
+        // Initialize Piano
+        // ============================================
+        
+        function initializePiano() {
+            const container = document.getElementById('pianoKeyboard');
+            container.innerHTML = '';
+            pianoKeys = [];
+            
+            // Create 88 piano keys (A0 to C8)
+            const whiteKeyWidth = 30;
+            const blackKeyWidth = 20;
+            const whiteKeyHeight = 150;
+            const blackKeyHeight = 100;
+            
+            const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            let whiteKeyIndex = 0;
+            
+            // Start from A0 to C8 (88 keys)
+            for (let octave = 0; octave <= 8; octave++) {
+                for (let i = 0; i < notes.length; i++) {
+                    const note = notes[i];
+                    const fullNote = `${note}${octave}`;
+                    
+                    // Skip keys outside piano range
+                    if (octave === 0 && i < 9) continue; // Skip C0-G#0
+                    if (octave === 8 && i > 0) break; // Only C8
+                    
+                    const isBlack = note.includes('#');
+                    const key = document.createElement('div');
+                    key.className = `piano-key ${isBlack ? 'black-key' : 'white-key'} absolute`;
+                    key.dataset.note = fullNote;
+                    
+                    if (isBlack) {
+                        key.style.width = `${blackKeyWidth}px`;
+                        key.style.height = `${blackKeyHeight}px`;
+                        key.style.left = `${whiteKeyIndex * whiteKeyWidth - blackKeyWidth / 2}px`;
+                        key.style.top = '0';
+                    } else {
+                        key.style.width = `${whiteKeyWidth}px`;
+                        key.style.height = `${whiteKeyHeight}px`;
+                        key.style.left = `${whiteKeyIndex * whiteKeyWidth}px`;
+                        key.style.top = '0';
+                        whiteKeyIndex++;
+                    }
+                    
+                    // Click handler
+                    key.addEventListener('click', () => playNote(fullNote));
+                    
+                    container.appendChild(key);
+                    pianoKeys.push({ element: key, note: fullNote });
+                }
+            }
+            
+            // Initialize Piano Roll Canvas
+            initializePianoRoll();
+        }
+        
+        // ============================================
+        // Initialize Piano Roll Canvas
+        // ============================================
+        
+        function initializePianoRoll() {
+            const canvas = document.getElementById('pianoRollCanvas');
+            pianoRollContext = canvas.getContext('2d');
+            
+            // Set canvas size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = 300;
+            
+            // Draw initial state
+            drawPianoRoll();
+        }
+        
+        function drawPianoRoll() {
+            const canvas = document.getElementById('pianoRollCanvas');
+            const ctx = pianoRollContext;
+            
+            // Clear canvas with gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1a1a2e');
+            gradient.addColorStop(1, '#16213e');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid lines - more visible
+            ctx.strokeStyle = 'rgba(100, 150, 255, 0.2)';
+            ctx.lineWidth = 2;
+            
+            // Horizontal lines (notes) - 24 lines for better resolution
+            for (let i = 0; i <= 24; i++) {
+                const y = (canvas.height / 24) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Vertical time markers
+            ctx.strokeStyle = 'rgba(100, 150, 255, 0.15)';
+            for (let i = 0; i <= 10; i++) {
+                const x = (canvas.width / 10) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Draw notes if available - IMPROVED
+            if (analysisResult && analysisResult.notes) {
+                const maxTime = Math.max(...analysisResult.notes.map(n => n.startTime + n.duration));
+                const timeScale = canvas.width / (maxTime * 1.1); // Add 10% padding
+                
+                analysisResult.notes.forEach((note, idx) => {
+                    const x = note.startTime * timeScale;
+                    const width = Math.max(note.duration * timeScale, 4); // Minimum width of 4px
+                    const noteNum = getNoteNumber(note.pitch);
+                    
+                    // Better vertical distribution - use full range
+                    const octave = Math.floor(noteNum / 12);
+                    const noteInOctave = noteNum % 12;
+                    const normalizedPosition = (octave * 12 + noteInOctave) / 96; // 8 octaves
+                    const y = canvas.height * (1 - normalizedPosition);
+                    const height = Math.max(canvas.height / 24, 8); // Minimum height of 8px
+                    
+                    // Vibrant colors based on note
+                    const hue = (noteInOctave * 30) % 360;
+                    
+                    // Draw note with glow effect
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = `hsla(${hue}, 100%, 60%, 0.8)`;
+                    ctx.fillStyle = `hsla(${hue}, 85%, 65%, 0.95)`;
+                    ctx.fillRect(x, y - height/2, width, height);
+                    
+                    // Reset shadow
+                    ctx.shadowBlur = 0;
+                    
+                    // Draw bright border
+                    ctx.strokeStyle = `hsla(${hue}, 100%, 80%, 1)`;
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y - height/2, width, height);
+                });
+                
+                console.log('[v0] Piano roll drawn with', analysisResult.notes.length, 'notes');
+            }
+        }
+            
+            // Draw notes if available
+            if (analysisResult && analysisResult.notes) {
+                const maxTime = Math.max(...analysisResult.notes.map(n => n.startTime + n.duration));
+                const timeScale = canvas.width / maxTime;
+                
+                analysisResult.notes.forEach(note => {
+                    const x = note.startTime * timeScale;
+                    const width = note.duration * timeScale;
+                    const noteNum = getNoteNumber(note.pitch);
+                    const y = canvas.height - ((noteNum % 12) * (canvas.height / 12));
+                    const height = canvas.height / 12;
+                    
+                    // Draw note
+                    ctx.fillStyle = `hsla(${(noteNum * 30) % 360}, 70%, 60%, 0.8)`;
+                    ctx.fillRect(x, y - height, width, height);
+                    
+                    // Draw border
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.strokeRect(x, y - height, width, height);
+                });
+            }
+        }
+        
+        function getNoteNumber(pitch) {
+            const noteMap = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11, 'Db': 1, 'Eb': 3, 'Gb': 6, 'Ab': 8, 'Bb': 10 };
+            const match = pitch.match(/^([A-G][#b]?)(\d+)$/);
+            if (!match) return 0;
+            const note = match[1];
+            const octave = parseInt(match[2]);
+            return octave * 12 + (noteMap[note] || 0);
+        }
+        
+        // ============================================
+        // Initialize Tone.js Synth
+        // ============================================
+        
+        function initializeSynth() {
+            if (synth) {
+                synth.dispose();
+            }
+            
+            // Create synth with volume boost
+            synth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: {
+                    type: 'triangle'
+                },
+                envelope: {
+                    attack: 0.01,
+                    decay: 0.2,
+                    sustain: 0.6,
+                    release: 1.2
+                },
+                volume: 6
+            }).toDestination();
+            
+            // Additional master volume boost
+            Tone.getDestination().volume.value = 6;
+        }
+        
+        // ============================================
+        // Play Note
+        // ============================================
+        
+        window.playNote = function(note, duration = 0.5) {
+            if (!synth) initializeSynth();
+            
+            // Start audio context
+            if (Tone.context.state !== 'running') {
+                Tone.context.resume();
+            }
+            
+            synth.triggerAttackRelease(note, duration);
+            
+            // Highlight key
+            highlightKey(note);
+            setTimeout(() => unhighlightKey(note), duration * 1000);
+        };
+        
+        function highlightKey(note) {
+            const key = pianoKeys.find(k => k.note === note);
+            if (key) {
+                key.element.classList.add('active');
+            }
+        }
+        
+        function unhighlightKey(note) {
+            const key = pianoKeys.find(k => k.note === note);
+            if (key) {
+                key.element.classList.remove('active');
+            }
+        }
+        
+        // ============================================
+        // Playback Controls
+        // ============================================
+        
+        window.togglePlay = async function() {
+            if (isPlaying) {
+                pausePlayback();
+            } else {
+                await startPlayback();
+            }
+        };
+        
+        async function startPlayback() {
+            if (!analysisResult || !analysisResult.notes) return;
+            
+            if (Tone.context.state !== 'running') {
+                await Tone.context.resume();
+            }
+            
+            isPlaying = true;
+            document.getElementById('playBtn').innerHTML = '⏸️ השהה';
+            
+            // Get settings
+            const loop = document.getElementById('loopCheckbox').checked;
+            const playAlong = document.getElementById('playAlongCheckbox').checked;
+            
+            // Schedule notes
+            const now = Tone.now();
+            const notes = analysisResult.notes;
+            
+            currentNoteIndex = 0;
+            
+            function scheduleNext() {
+                if (!isPlaying) return;
+                
+                if (currentNoteIndex >= notes.length) {
+                    if (loop) {
+                        currentNoteIndex = 0;
+                        scheduleNext();
+                    } else {
+                        stopPlayback();
+                    }
+                    return;
+                }
+                
+                const note = notes[currentNoteIndex];
+                const delay = (note.startTime / playbackSpeed) * 1000;
+                
+                setTimeout(() => {
+                    if (isPlaying) {
+                        playNote(note.pitch, note.duration / playbackSpeed);
+                        
+                        if (playAlong) {
+                            // In play-along mode, highlight the note
+                            highlightKey(note.pitch);
+                        }
+                        
+                        currentNoteIndex++;
+                        scheduleNext();
+                    }
+                }, delay);
+            }
+            
+            scheduleNext();
+        }
+        
+        function pausePlayback() {
+            isPlaying = false;
+            document.getElementById('playBtn').innerHTML = '▶️ נגן';
+        }
+        
+        window.stopPlayback = function() {
+            isPlaying = false;
+            currentNoteIndex = 0;
+            document.getElementById('playBtn').innerHTML = '▶️ נגן';
+            
+            // Unhighlight all keys
+            pianoKeys.forEach(key => key.element.classList.remove('active'));
+        };
+        
+        window.changeSpeed = function() {
+            playbackSpeed = parseFloat(document.getElementById('speedSelect').value);
+        };
+        
+        // ============================================
+        // Tab Switching
+        // ============================================
+        
+        window.switchTab = function(tab) {
+            if (tab === 'sheet') {
+                document.getElementById('sheetContent').classList.remove('hidden');
+                document.getElementById('visualContent').classList.add('hidden');
+                document.getElementById('sheetTab').classList.add('tab-active');
+                document.getElementById('sheetTab').classList.remove('bg-gray-700', 'hover:bg-gray-600');
+                document.getElementById('visualTab').classList.remove('tab-active');
+                document.getElementById('visualTab').classList.add('bg-gray-700', 'hover:bg-gray-600');
+            } else {
+                document.getElementById('sheetContent').classList.add('hidden');
+                document.getElementById('visualContent').classList.remove('hidden');
+                document.getElementById('visualTab').classList.add('tab-active');
+                document.getElementById('visualTab').classList.remove('bg-gray-700', 'hover:bg-gray-600');
+                document.getElementById('sheetTab').classList.remove('tab-active');
+                document.getElementById('sheetTab').classList.add('bg-gray-700', 'hover:bg-gray-600');
+            }
+        };
+        
+        // ============================================
+        // Download MIDI
+        // ============================================
+        
+        window.downloadMIDI = function() {
+            alert('💡 פיצ\'ר MIDI בפיתוח! בינתיים תוכל לשמור את התווים כתמונה (צילום מסך)');
+        };
+        
+        // ============================================
+        // Reset App
+        // ============================================
+        
+        window.resetApp = function() {
+            currentFile = null;
+            analysisResult = null;
+            isPlaying = false;
+            currentNoteIndex = 0;
+            
+            document.getElementById('fileName').textContent = '';
+            document.getElementById('resultsScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.remove('hidden');
+            document.getElementById('audioFileInput').value = '';
+            
+            updateAnalyzeButton();
+        };
+        
+        // ============================================
+        // Update Analyze Button
+        // ============================================
+        
+        function updateAnalyzeButton() {
+            const btn = document.getElementById('analyzeBtn');
+            btn.disabled = !(currentFile && apiKey);
+        }
+        
+        // ============================================
+        // Keyboard Input (for piano)
+        // ============================================
+        
+        document.addEventListener('keydown', (e) => {
+            const keyMap = {
+                'a': 'C4', 'w': 'C#4', 's': 'D4', 'e': 'D#4', 'd': 'E4',
+                'f': 'F4', 't': 'F#4', 'g': 'G4', 'y': 'G#4', 'h': 'A4',
+                'u': 'A#4', 'j': 'B4', 'k': 'C5', 'o': 'C#5', 'l': 'D5'
+            };
+            
+            const note = keyMap[e.key.toLowerCase()];
+            if (note) {
+                playNote(note);
+            }
+        });
+        
+    </script>
+</body>
+</html>
