@@ -216,16 +216,90 @@
             <div id="sheetContent" class="bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
                 <div class="flex justify-between items-center mb-6 flex-wrap gap-4">
                     <h2 class="text-2xl font-bold">תווים מוזיקליים</h2>
-                    <div class="flex gap-3">
+                    <div class="flex gap-3 flex-wrap">
+                        <button onclick="downloadSheetMusicPDF()" class="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition">
+                            📄 הורד PDF
+                        </button>
                         <button onclick="downloadMIDI()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg transition">
                             💾 הורד MIDI
+                        </button>
+                        <button onclick="downloadNotesAudio()" class="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg transition">
+                            🎵 הורד שמע תווים
                         </button>
                         <button onclick="resetApp()" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg transition">
                             🔄 שיר חדש
                         </button>
                     </div>
                 </div>
-                <div id="sheetMusicContainer" class="bg-white rounded-lg p-6 overflow-auto" style="direction: ltr;"></div>
+                
+                <!-- Audio Players Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <!-- Original Song Player -->
+                    <div class="bg-gray-900 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-3 text-blue-400">🎧 השיר המקורי</h3>
+                        <audio id="originalAudioPlayer" controls class="w-full" style="direction: ltr;">
+                            <source id="originalAudioSource" type="audio/mpeg">
+                            הדפדפן שלך לא תומך בנגן אודיו
+                        </audio>
+                    </div>
+                    
+                    <!-- Notes Playback Player -->
+                    <div class="bg-gray-900 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-3 text-green-400">🎹 נגינת התווים</h3>
+                        <div class="flex gap-2 items-center">
+                            <button id="playNotesBtn" onclick="playSheetNotes()" class="flex-1 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition">
+                                ▶️ נגן תווים
+                            </button>
+                            <button onclick="stopSheetNotes()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition">
+                                ⏹️ עצור
+                            </button>
+                        </div>
+                        <div id="notesPlaybackProgress" class="mt-2 h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div id="notesPlaybackBar" class="h-full bg-green-500 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="sheetMusicContainer" class="bg-white rounded-lg p-8 overflow-auto min-h-[400px]" style="direction: ltr;"></div>
+                
+                <!-- Advanced Controls -->
+                <div class="mt-6 bg-gray-900 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold mb-3">⚙️ בקרות מתקדמות</h3>
+                    <div class="flex gap-4 flex-wrap items-center">
+                        <div class="flex items-center gap-2">
+                            <label class="font-semibold text-sm">טרנספוזיציה:</label>
+                            <button onclick="transposeNotes(-1)" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">−</button>
+                            <span id="transposeDisplay" class="bg-gray-800 px-4 py-1 rounded font-mono">0</span>
+                            <button onclick="transposeNotes(1)" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">+</button>
+                        </div>
+                        <button onclick="toggleMetronome()" id="metronomeBtn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
+                            🎯 מטרונום
+                        </button>
+                        <button onclick="showChords()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition">
+                            🎸 הצג אקורדים
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Music Info -->
+                <div id="musicInfo" class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-gray-900 rounded-lg p-4 text-center">
+                        <div class="text-sm text-gray-400">קצב (BPM)</div>
+                        <div id="bpmDisplay" class="text-2xl font-bold text-blue-400">--</div>
+                    </div>
+                    <div class="bg-gray-900 rounded-lg p-4 text-center">
+                        <div class="text-sm text-gray-400">סימן טונאלי</div>
+                        <div id="keyDisplay" class="text-2xl font-bold text-purple-400">--</div>
+                    </div>
+                    <div class="bg-gray-900 rounded-lg p-4 text-center">
+                        <div class="text-sm text-gray-400">משקל</div>
+                        <div id="timeDisplay" class="text-2xl font-bold text-green-400">--</div>
+                    </div>
+                    <div class="bg-gray-900 rounded-lg p-4 text-center">
+                        <div class="text-sm text-gray-400">מספר תווים</div>
+                        <div id="notesCountDisplay" class="text-2xl font-bold text-pink-400">--</div>
+                    </div>
+                </div>
             </div>
             
             <!-- Visual Tab -->
@@ -275,10 +349,16 @@
                 
                 <!-- Piano Roll Canvas -->
                 <div class="mb-6 bg-gray-900 rounded-lg overflow-hidden shadow-2xl border-2 border-blue-500/30">
+                    <div class="bg-gray-800 px-4 py-2 border-b border-gray-700 flex justify-between items-center">
+                        <span class="text-sm font-semibold text-blue-400">📊 Piano Roll - ויזואליזציה</span>
+                        <button onclick="downloadPianoRollImage()" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition">
+                            💾 שמור תמונה
+                        </button>
+                    </div>
                     <canvas 
                         id="pianoRollCanvas" 
                         class="w-full"
-                        style="height: 400px;"
+                        style="height: 450px;"
                     ></canvas>
                 </div>
                 
@@ -490,30 +570,53 @@ g e c | B A F/2F/2 | e c d | c2 |]`,
                 // Convert audio file to base64
                 const base64Audio = await fileToBase64(currentFile);
                 
-                // Prepare the prompt for Gemini
-                const prompt = `אנא נתח את השיר המצורף וחלץ את התווים המוזיקליים.
-החזר תשובה בפורמט JSON בלבד, ללא טקסט נוסף, במבנה הבא:
+                // Prepare the prompt for Gemini - ENHANCED FOR ACCURACY
+                const prompt = `You are an expert music transcription AI. Analyze this audio file with MAXIMUM PRECISION and extract ALL musical notes.
+
+CRITICAL REQUIREMENTS:
+1. Listen VERY CAREFULLY to every single note in the audio
+2. Identify EXACT pitch, timing, and duration for each note
+3. Detect tempo (BPM) accurately by analyzing note spacing
+4. Identify key signature by analyzing which notes appear and their relationships
+5. Determine time signature from rhythmic patterns
+6. Include ALL notes - don't skip any, even short or quiet ones
+7. For polyphonic audio (multiple notes at once), include ALL simultaneous notes
+8. Measure timing with millisecond precision
+
+Return ONLY valid JSON with this EXACT structure (no extra text):
 
 {
-  "abcNotation": "תווים בפורמט ABC Notation (X:1\\nT:Title\\nM:4/4\\nL:1/4\\nK:C\\nC D E F | G A B c |])",
+  "abcNotation": "X:1\\nT:Song Title\\nM:4/4\\nL:1/8\\nQ:1/4=120\\nK:C\\nC D E F | G A B c |]",
   "notes": [
     {"pitch": "C4", "startTime": 0.0, "duration": 0.5, "velocity": 80},
-    {"pitch": "D4", "startTime": 0.5, "duration": 0.5, "velocity": 80}
+    {"pitch": "E4", "startTime": 0.0, "duration": 0.5, "velocity": 75},
+    {"pitch": "D4", "startTime": 0.5, "duration": 0.5, "velocity": 82}
   ],
   "bpm": 120,
   "keySignature": "C",
   "timeSignature": "4/4"
 }
 
-הערות חשובות:
-- pitch: שם התו + אוקטבה (למשל: C4, F#5, Bb3)
-- startTime: זמן התחלה בשניות
-- duration: אורך התו בשניות
-- velocity: עוצמה (0-127)
-- abcNotation: תווים בפורמט ABC מלא ותקין
-- זהה את כל התווים בשיר בצורה מדויקת ככל האפשר
+FIELD SPECIFICATIONS:
+- pitch: Note name + octave (C4, F#5, Bb3, etc.). Use scientific pitch notation.
+- startTime: Exact start time in seconds (e.g., 0.0, 0.523, 1.047)
+- duration: Note length in seconds (precise to 0.001s)
+- velocity: Volume/intensity (0-127, where 80-100 is normal, 60-79 is quiet, 101-127 is loud)
+- abcNotation: Valid ABC notation with proper headers (X, T, M, L, Q, K) and bars (|)
+- bpm: Detected tempo in beats per minute (analyze note timing patterns)
+- keySignature: Detected key (C, G, D, Am, F#m, Bb, etc.)
+- timeSignature: Time signature (4/4, 3/4, 6/8, etc.)
 
-החזר רק את ה-JSON, ללא טקסט נוסף.`;
+ACCURACY CHECKLIST:
+✓ Every audible note is included
+✓ Timing is precise (not rounded to nearest beat)
+✓ Multiple simultaneous notes are all captured
+✓ Velocity reflects actual loudness
+✓ BPM matches the actual tempo
+✓ Key signature is correctly identified
+✓ ABC notation is syntactically valid
+
+Return ONLY the JSON object. No markdown, no explanations, just pure JSON.`;
                 
                 // Call Gemini API
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -595,6 +698,9 @@ g e c | B A F/2F/2 | e c d | c2 |]`,
             
             // Initialize Tone.js synth
             initializeSynth();
+            
+            // Load original audio
+            loadOriginalAudio();
         }
         
         // ============================================
@@ -607,21 +713,34 @@ g e c | B A F/2F/2 | e c d | c2 |]`,
             
             if (analysisResult && analysisResult.abcNotation) {
                 try {
+                    // Clear and ensure proper rendering
+                    container.style.minHeight = '400px';
+                    
                     ABCJS.renderAbc('sheetMusicContainer', analysisResult.abcNotation, {
                         responsive: 'resize',
-                        scale: 1.3,
-                        staffwidth: 800,
+                        scale: 1.5,
+                        staffwidth: 750,
                         add_classes: true,
-                        clickListener: null
+                        paddingtop: 20,
+                        paddingbottom: 20,
+                        paddingleft: 20,
+                        paddingright: 20
                     });
                     
+                    // Update music info displays
+                    document.getElementById('bpmDisplay').textContent = analysisResult.bpm || '--';
+                    document.getElementById('keyDisplay').textContent = analysisResult.keySignature || '--';
+                    document.getElementById('timeDisplay').textContent = analysisResult.timeSignature || '--';
+                    document.getElementById('notesCountDisplay').textContent = analysisResult.notes?.length || 0;
+                    
                     console.log('[v0] ABC notation rendered successfully');
+                    console.log('[v0] Notes count:', analysisResult.notes?.length);
                 } catch (error) {
                     console.error('[v0] Error rendering ABC:', error);
-                    container.innerHTML = `<p class="text-red-500 text-center p-8">שגיאה בהצגת התווים: ${error.message}</p>`;
+                    container.innerHTML = `<p class="text-red-500 text-center p-8" style="color: #ef4444;">שגיאה בהצגת התווים: ${error.message}</p>`;
                 }
             } else {
-                container.innerHTML = '<p class="text-yellow-500 text-center p-8">לא נמצאו תווים להצגה</p>';
+                container.innerHTML = '<p class="text-yellow-500 text-center p-8" style="color: #eab308;">לא נמצאו תווים להצגה</p>';
             }
         }
         
@@ -691,9 +810,11 @@ g e c | B A F/2F/2 | e c d | c2 |]`,
             const canvas = document.getElementById('pianoRollCanvas');
             pianoRollContext = canvas.getContext('2d');
             
-            // Set canvas size
+            // Set canvas size to match display size
             canvas.width = canvas.offsetWidth;
-            canvas.height = 300;
+            canvas.height = 450;
+            
+            console.log('[v0] Piano roll initialized:', canvas.width, 'x', canvas.height);
             
             // Draw initial state
             drawPianoRoll();
@@ -723,14 +844,21 @@ g e c | B A F/2F/2 | e c d | c2 |]`,
                 ctx.stroke();
             }
             
-            // Vertical time markers
+            // Vertical time markers with labels
             ctx.strokeStyle = 'rgba(100, 150, 255, 0.15)';
+            ctx.fillStyle = 'rgba(150, 200, 255, 0.6)';
+            ctx.font = '11px Rubik';
             for (let i = 0; i <= 10; i++) {
                 const x = (canvas.width / 10) * i;
                 ctx.beginPath();
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, canvas.height);
                 ctx.stroke();
+                
+                // Add time labels
+                const seconds = (i * 0.1 * (analysisResult?.notes ? 
+                    Math.max(...analysisResult.notes.map(n => n.startTime + n.duration)) : 10)).toFixed(1);
+                ctx.fillText(seconds + 's', x + 3, 15);
             }
             
             // Draw notes if available - IMPROVED
@@ -793,6 +921,7 @@ g e c | B A F/2F/2 | e c d | c2 |]`,
                     ctx.strokeRect(x, y - height, width, height);
                 });
             }
+        }
         
         function getNoteNumber(pitch) {
             const noteMap = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11, 'Db': 1, 'Eb': 3, 'Gb': 6, 'Ab': 8, 'Bb': 10 };
@@ -970,12 +1099,141 @@ g e c | B A F/2F/2 | e c d | c2 |]`,
         };
         
         // ============================================
+        // Play Sheet Notes (Separate Playback)
+        // ============================================
+        
+        let sheetNotesPlaying = false;
+        let sheetNotesTimeout = null;
+        
+        window.playSheetNotes = async function() {
+            if (sheetNotesPlaying) {
+                stopSheetNotes();
+                return;
+            }
+            
+            if (!analysisResult || !analysisResult.notes) return;
+            
+            if (Tone.context.state !== 'running') {
+                await Tone.context.resume();
+            }
+            
+            sheetNotesPlaying = true;
+            document.getElementById('playNotesBtn').innerHTML = '⏸️ השהה';
+            
+            const notes = analysisResult.notes;
+            const maxTime = Math.max(...notes.map(n => n.startTime + n.duration)) * 1000;
+            let startTime = Date.now();
+            
+            // Play each note
+            notes.forEach(note => {
+                const delay = note.startTime * 1000;
+                sheetNotesTimeout = setTimeout(() => {
+                    if (sheetNotesPlaying) {
+                        playNote(note.pitch, note.duration);
+                    }
+                }, delay);
+            });
+            
+            // Update progress bar
+            function updateProgress() {
+                if (!sheetNotesPlaying) return;
+                
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min((elapsed / maxTime) * 100, 100);
+                document.getElementById('notesPlaybackBar').style.width = progress + '%';
+                
+                if (progress < 100) {
+                    requestAnimationFrame(updateProgress);
+                } else {
+                    stopSheetNotes();
+                }
+            }
+            
+            updateProgress();
+        };
+        
+        window.stopSheetNotes = function() {
+            sheetNotesPlaying = false;
+            if (sheetNotesTimeout) clearTimeout(sheetNotesTimeout);
+            document.getElementById('playNotesBtn').innerHTML = '▶️ נגן תווים';
+            document.getElementById('notesPlaybackBar').style.width = '0%';
+        };
+        
+        // ============================================
+        // Download Sheet Music PDF
+        // ============================================
+        
+        window.downloadSheetMusicPDF = function() {
+            if (!analysisResult) return;
+            
+            // Use abcjs to generate SVG
+            const container = document.getElementById('sheetMusicContainer');
+            
+            // Create a print-friendly version
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html dir="ltr">
+                <head>
+                    <title>תווים - ${currentFile?.name || 'Sheet Music'}</title>
+                    <script src="https://cdn.jsdelivr.net/npm/abcjs@6.2.3/dist/abcjs-basic-min.js"></script>
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            padding: 20px; 
+                            background: white;
+                        }
+                        h1 { text-align: center; color: #333; }
+                        #music { margin: 20px auto; max-width: 800px; }
+                    </style>
+                </head>
+                <body>
+                    <h1>${currentFile?.name || 'Sheet Music'}</h1>
+                    <div id="music"></div>
+                    <script>
+                        window.onload = function() {
+                            ABCJS.renderAbc('music', ${JSON.stringify(analysisResult.abcNotation)}, {
+                                scale: 1.3,
+                                staffwidth: 800
+                            });
+                            setTimeout(() => window.print(), 500);
+                        };
+                    </script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        };
+        
+        // ============================================
+        // Download Notes Audio
+        // ============================================
+        
+        window.downloadNotesAudio = async function() {
+            alert('💡 הורדת קובץ שמע בפיתוח! בינתיים השתמש בכפתור "נגן תווים" להאזנה');
+        };
+        
+        // ============================================
         // Download MIDI
         // ============================================
         
         window.downloadMIDI = function() {
-            alert('💡 פיצ\'ר MIDI בפיתוח! בינתיים תוכל לשמור את התווים כתמונה (צילום מסך)');
+            alert('💡 פיצ\'ר MIDI בפיתוח! בינתיים תוכל לשמור את התווים כ-PDF');
         };
+        
+        // ============================================
+        // Load Original Audio
+        // ============================================
+        
+        function loadOriginalAudio() {
+            if (currentFile && currentFile instanceof File) {
+                const url = URL.createObjectURL(currentFile);
+                const player = document.getElementById('originalAudioPlayer');
+                const source = document.getElementById('originalAudioSource');
+                source.src = url;
+                player.load();
+            }
+        }
         
         // ============================================
         // Reset App
@@ -1003,6 +1261,105 @@ g e c | B A F/2F/2 | e c d | c2 |]`,
             const btn = document.getElementById('analyzeBtn');
             btn.disabled = !(currentFile && apiKey);
         }
+        
+        // ============================================
+        // Transpose Notes
+        // ============================================
+        
+        let transposeAmount = 0;
+        
+        window.transposeNotes = function(semitones) {
+            transposeAmount += semitones;
+            document.getElementById('transposeDisplay').textContent = transposeAmount > 0 ? `+${transposeAmount}` : transposeAmount;
+            
+            // You would apply this to playback in a full implementation
+            alert(`🎵 טרנספוזיציה: ${transposeAmount} חצאי טונים`);
+        };
+        
+        // ============================================
+        // Metronome
+        // ============================================
+        
+        let metronomeActive = false;
+        let metronomeInterval = null;
+        
+        window.toggleMetronome = function() {
+            metronomeActive = !metronomeActive;
+            const btn = document.getElementById('metronomeBtn');
+            
+            if (metronomeActive) {
+                btn.classList.add('bg-green-600');
+                btn.classList.remove('bg-blue-600');
+                const bpm = analysisResult?.bpm || 120;
+                const interval = (60 / bpm) * 1000;
+                
+                metronomeInterval = setInterval(() => {
+                    // Play click sound
+                    if (synth) {
+                        synth.triggerAttackRelease('C6', '0.05');
+                    }
+                }, interval);
+                
+                alert(`🎯 מטרונום פעיל ב-${bpm} BPM`);
+            } else {
+                btn.classList.remove('bg-green-600');
+                btn.classList.add('bg-blue-600');
+                if (metronomeInterval) clearInterval(metronomeInterval);
+            }
+        };
+        
+        // ============================================
+        // Download Piano Roll Image
+        // ============================================
+        
+        window.downloadPianoRollImage = function() {
+            const canvas = document.getElementById('pianoRollCanvas');
+            const link = document.createElement('a');
+            link.download = `piano-roll-${currentFile?.name || 'notes'}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        };
+        
+        // ============================================
+        // Show Chords
+        // ============================================
+        
+        window.showChords = function() {
+            if (!analysisResult || !analysisResult.notes) {
+                alert('❌ אין תווים להצגה');
+                return;
+            }
+            
+            // Simple chord detection based on simultaneous notes
+            const chords = [];
+            const threshold = 0.1; // Notes within 100ms are considered simultaneous
+            
+            for (let i = 0; i < analysisResult.notes.length; i++) {
+                const note = analysisResult.notes[i];
+                const simultaneous = [note];
+                
+                for (let j = i + 1; j < analysisResult.notes.length; j++) {
+                    const other = analysisResult.notes[j];
+                    if (Math.abs(other.startTime - note.startTime) < threshold) {
+                        simultaneous.push(other);
+                    }
+                }
+                
+                if (simultaneous.length > 1) {
+                    chords.push({
+                        time: note.startTime,
+                        notes: simultaneous.map(n => n.pitch)
+                    });
+                }
+            }
+            
+            if (chords.length > 0) {
+                const chordList = chords.map(c => `${c.time.toFixed(2)}s: ${c.notes.join(', ')}`).join('\n');
+                alert(`🎸 אקורדים שזוהו:\n\n${chordList}`);
+            } else {
+                alert('🎵 לא זוהו אקורדים (תווים בודדים בלבד)');
+            }
+        };
         
         // ============================================
         // Keyboard Input (for piano)
