@@ -218,7 +218,7 @@
                     <h2 class="text-2xl font-bold">תווים מוזיקליים</h2>
                     <div class="flex gap-3 flex-wrap">
                         <button onclick="downloadSheetMusicPDF()" class="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg transition">
-                            📄 הורד PDF
+                            🖨️ הדפסה
                         </button>
                         <button onclick="downloadMIDI()" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg transition">
                             💾 הורד MIDI
@@ -260,24 +260,43 @@
                     </div>
                 </div>
                 
-                <div id="sheetMusicContainer" class="bg-white rounded-lg p-8 overflow-auto min-h-[400px]" style="direction: ltr;"></div>
+                <!-- Note Display Tooltip -->
+                <div id="noteTooltip" class="hidden fixed bg-white border-4 border-gray-800 rounded-xl shadow-2xl p-6 z-50" style="direction: ltr;">
+                    <div class="text-center">
+                        <div id="noteSymbol" class="text-6xl mb-2">♪</div>
+                        <div id="noteNameHebrew" class="text-2xl font-bold text-gray-800">דו</div>
+                        <div id="noteNameEnglish" class="text-sm text-gray-500 mt-1">C4</div>
+                    </div>
+                </div>
+                
+                <div id="sheetMusicContainer" class="bg-white rounded-lg p-8 overflow-auto min-h-[400px]" style="direction: ltr; color: #000;"></div>
                 
                 <!-- Advanced Controls -->
                 <div class="mt-6 bg-gray-900 rounded-lg p-4">
-                    <h3 class="text-lg font-semibold mb-3">⚙️ בקרות מתקדמות</h3>
-                    <div class="flex gap-4 flex-wrap items-center">
-                        <div class="flex items-center gap-2">
-                            <label class="font-semibold text-sm">טרנספוזיציה:</label>
-                            <button onclick="transposeNotes(-1)" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">−</button>
-                            <span id="transposeDisplay" class="bg-gray-800 px-4 py-1 rounded font-mono">0</span>
-                            <button onclick="transposeNotes(1)" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">+</button>
+                    <h3 class="text-lg font-semibold mb-3">בקרות מתקדמות</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex gap-4 flex-wrap items-center">
+                            <div class="flex items-center gap-2">
+                                <label class="font-semibold text-sm">טרנספוזיציה:</label>
+                                <button onclick="transposeNotes(-1)" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">−</button>
+                                <span id="transposeDisplay" class="bg-gray-800 px-4 py-1 rounded font-mono">0</span>
+                                <button onclick="transposeNotes(1)" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">+</button>
+                            </div>
+                            <button onclick="toggleMetronome()" id="metronomeBtn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
+                                מטרונום
+                            </button>
                         </div>
-                        <button onclick="toggleMetronome()" id="metronomeBtn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
-                            🎯 מטרונום
-                        </button>
-                        <button onclick="showChords()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition">
-                            🎸 הצג אקורדים
-                        </button>
+                        <div class="flex gap-2 flex-wrap">
+                            <button onclick="showChords()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition">
+                                הצג אקורדים
+                            </button>
+                            <button onclick="exportToMusicXML()" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">
+                                ייצוא MusicXML
+                            </button>
+                            <button onclick="toggleAutoScroll()" id="autoScrollBtn" class="bg-teal-600 hover:bg-teal-700 px-4 py-2 rounded-lg transition">
+                                גלילה אוטומטית
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
@@ -342,17 +361,50 @@
                         
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="playAlongCheckbox" class="w-5 h-5">
-                            <span class="font-semibold">🎮 מצב Play-Along</span>
+                            <span class="font-semibold">מצב Play-Along</span>
                         </label>
+                        
+                        <button onclick="togglePracticeMode()" id="practiceModeBtn" class="bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded-lg transition">
+                            מצב תרגול
+                        </button>
+                    </div>
+                    
+                    <!-- Practice Mode Stats -->
+                    <div id="practiceStats" class="hidden mt-4 grid grid-cols-3 gap-3 bg-gray-800 rounded-lg p-4">
+                        <div class="text-center">
+                            <div class="text-sm text-gray-400">תווים נכונים</div>
+                            <div id="correctNotes" class="text-2xl font-bold text-green-400">0</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm text-gray-400">תווים שגויים</div>
+                            <div id="incorrectNotes" class="text-2xl font-bold text-red-400">0</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm text-gray-400">דיוק</div>
+                            <div id="accuracyPercent" class="text-2xl font-bold text-blue-400">100%</div>
+                        </div>
                     </div>
                 </div>
                 
+                <!-- Visualization Tabs -->
+                <div class="mb-4 flex gap-2 flex-wrap">
+                    <button onclick="switchVisualization('pianoRoll')" id="vizPianoRollBtn" class="bg-blue-600 px-4 py-2 rounded-lg transition">
+                        Piano Roll
+                    </button>
+                    <button onclick="switchVisualization('noteChart')" id="vizNoteChartBtn" class="bg-gray-700 px-4 py-2 rounded-lg transition">
+                        תרשים תווים
+                    </button>
+                    <button onclick="switchVisualization('timeline')" id="vizTimelineBtn" class="bg-gray-700 px-4 py-2 rounded-lg transition">
+                        ציר זמן
+                    </button>
+                </div>
+                
                 <!-- Piano Roll Canvas -->
-                <div class="mb-6 bg-gray-900 rounded-lg overflow-hidden shadow-2xl border-2 border-blue-500/30">
+                <div id="pianoRollViz" class="mb-6 bg-gray-900 rounded-lg overflow-hidden shadow-2xl border-2 border-blue-500/30">
                     <div class="bg-gray-800 px-4 py-2 border-b border-gray-700 flex justify-between items-center">
-                        <span class="text-sm font-semibold text-blue-400">📊 Piano Roll - ויזואליזציה</span>
+                        <span class="text-sm font-semibold text-blue-400">Piano Roll - ויזואליזציה</span>
                         <button onclick="downloadPianoRollImage()" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition">
-                            💾 שמור תמונה
+                            שמור תמונה
                         </button>
                     </div>
                     <canvas 
@@ -360,6 +412,24 @@
                         class="w-full"
                         style="height: 450px;"
                     ></canvas>
+                </div>
+                
+                <!-- Note Chart -->
+                <div id="noteChartViz" class="hidden mb-6 bg-gray-900 rounded-lg overflow-hidden shadow-2xl border-2 border-purple-500/30 p-6">
+                    <div class="text-center mb-4">
+                        <h3 class="text-xl font-bold text-purple-400">התפלגות תווים</h3>
+                    </div>
+                    <canvas id="noteChartCanvas" class="w-full" style="height: 400px;"></canvas>
+                </div>
+                
+                <!-- Timeline View -->
+                <div id="timelineViz" class="hidden mb-6 bg-gray-900 rounded-lg overflow-hidden shadow-2xl border-2 border-green-500/30 p-6">
+                    <div class="text-center mb-4">
+                        <h3 class="text-xl font-bold text-green-400">ציר זמן מוזיקלי</h3>
+                    </div>
+                    <div id="timelineContent" class="bg-gray-800 rounded-lg p-4 overflow-auto" style="max-height: 400px;">
+                        <div class="text-gray-400 text-center">ממתין לתווים...</div>
+                    </div>
                 </div>
                 
                 <!-- Virtual Piano Keyboard -->
@@ -570,53 +640,69 @@ g e c | B A F/2F/2 | e c d | c2 |]`,
                 // Convert audio file to base64
                 const base64Audio = await fileToBase64(currentFile);
                 
-                // Prepare the prompt for Gemini - ENHANCED FOR ACCURACY
-                const prompt = `You are an expert music transcription AI. Analyze this audio file with MAXIMUM PRECISION and extract ALL musical notes.
+                // Prepare the prompt for Gemini - ULTRA ENHANCED FOR MAXIMUM ACCURACY
+                const prompt = `You are a PROFESSIONAL music transcription AI with expert-level audio analysis capabilities. Your task is to transcribe this audio file with ABSOLUTE PRECISION.
 
-CRITICAL REQUIREMENTS:
-1. Listen VERY CAREFULLY to every single note in the audio
-2. Identify EXACT pitch, timing, and duration for each note
-3. Detect tempo (BPM) accurately by analyzing note spacing
-4. Identify key signature by analyzing which notes appear and their relationships
-5. Determine time signature from rhythmic patterns
-6. Include ALL notes - don't skip any, even short or quiet ones
-7. For polyphonic audio (multiple notes at once), include ALL simultaneous notes
-8. Measure timing with millisecond precision
+MISSION-CRITICAL ACCURACY REQUIREMENTS:
+1. PITCH DETECTION: Use advanced frequency analysis (FFT) to detect EVERY note with ±1 cent accuracy
+2. TIMING PRECISION: Measure onset times with MILLISECOND accuracy (0.001s resolution minimum)
+3. DURATION ACCURACY: Calculate exact note durations including release/decay times
+4. POLYPHONIC ANALYSIS: Identify ALL simultaneous notes (chords, harmonies, overlapping notes)
+5. DYNAMIC RANGE: Accurately map velocity based on amplitude (dB to MIDI velocity conversion)
+6. TEMPO DETECTION: Use autocorrelation and beat tracking algorithms for precise BPM
+7. KEY DETECTION: Apply Krumhansl-Schmuckler key-finding algorithm based on note distribution
+8. TIME SIGNATURE: Analyze rhythmic patterns and accent patterns for accurate meter detection
 
-Return ONLY valid JSON with this EXACT structure (no extra text):
+AUDIO ANALYSIS METHODOLOGY:
+- Apply spectral analysis to separate fundamental frequencies from harmonics
+- Use harmonic product spectrum (HPS) for accurate pitch detection of complex timbres
+- Implement onset detection with adaptive threshold for note start times
+- Track pitch bends and vibrato (report central pitch)
+- Separate melody from accompaniment in polyphonic audio
+- Filter out noise and artifacts (report only musical content)
+
+QUALITY REQUIREMENTS:
+- NO MISSING NOTES: Even grace notes, ghost notes, and quiet passing tones must be included
+- NO FALSE POSITIVES: Don't hallucinate notes that aren't there
+- RHYTHMIC ACCURACY: Preserve the exact rhythmic feel (swing, rubato, etc.)
+- HARMONIC COMPLETENESS: All chord tones and extensions must be captured
+
+Return ONLY valid JSON with this EXACT structure (no extra text, no markdown):
 
 {
-  "abcNotation": "X:1\\nT:Song Title\\nM:4/4\\nL:1/8\\nQ:1/4=120\\nK:C\\nC D E F | G A B c |]",
+  "abcNotation": "X:1\\nT:Song Title\\nM:4/4\\nL:1/16\\nQ:1/4=120\\nK:C\\n%%score V1\\nV:V1 clef=treble\\nC2 D2 E2 F2 | G2 A2 B2 c2 |]",
   "notes": [
-    {"pitch": "C4", "startTime": 0.0, "duration": 0.5, "velocity": 80},
-    {"pitch": "E4", "startTime": 0.0, "duration": 0.5, "velocity": 75},
-    {"pitch": "D4", "startTime": 0.5, "duration": 0.5, "velocity": 82}
+    {"pitch": "C4", "startTime": 0.000, "duration": 0.523, "velocity": 82},
+    {"pitch": "E4", "startTime": 0.001, "duration": 0.521, "velocity": 78},
+    {"pitch": "G4", "startTime": 0.002, "duration": 0.520, "velocity": 75}
   ],
-  "bpm": 120,
+  "bpm": 120.5,
   "keySignature": "C",
   "timeSignature": "4/4"
 }
 
-FIELD SPECIFICATIONS:
-- pitch: Note name + octave (C4, F#5, Bb3, etc.). Use scientific pitch notation.
-- startTime: Exact start time in seconds (e.g., 0.0, 0.523, 1.047)
-- duration: Note length in seconds (precise to 0.001s)
-- velocity: Volume/intensity (0-127, where 80-100 is normal, 60-79 is quiet, 101-127 is loud)
-- abcNotation: Valid ABC notation with proper headers (X, T, M, L, Q, K) and bars (|)
-- bpm: Detected tempo in beats per minute (analyze note timing patterns)
-- keySignature: Detected key (C, G, D, Am, F#m, Bb, etc.)
-- timeSignature: Time signature (4/4, 3/4, 6/8, etc.)
+FIELD SPECIFICATIONS (STRICT):
+- pitch: Scientific pitch notation (C4=middle C, A4=440Hz reference). Include sharps (#) and flats (b).
+- startTime: Onset time in seconds with 3+ decimal places (e.g., 0.523, 1.047, 2.891)
+- duration: Length in seconds with 3+ decimal places, measured from attack to release
+- velocity: MIDI velocity 1-127 (pp=20-35, p=36-50, mp=51-65, mf=66-80, f=81-95, ff=96-111, fff=112-127)
+- abcNotation: Syntactically perfect ABC notation with X:, T:, M:, L:, Q:, K: headers and proper bar lines
+- bpm: Floating point tempo with 1 decimal place precision
+- keySignature: Use standard notation (C, G, D, A, E, B, F#, C#, F, Bb, Eb, Ab, Db, Gb, Cb, Am, Em, Bm, F#m, C#m, G#m, D#m, Dm, Gm, Cm, Fm, Bbm, Ebm, Abm)
+- timeSignature: Format as "numerator/denominator" (4/4, 3/4, 6/8, 12/8, 5/4, 7/8, etc.)
 
-ACCURACY CHECKLIST:
-✓ Every audible note is included
-✓ Timing is precise (not rounded to nearest beat)
-✓ Multiple simultaneous notes are all captured
-✓ Velocity reflects actual loudness
-✓ BPM matches the actual tempo
-✓ Key signature is correctly identified
-✓ ABC notation is syntactically valid
+FINAL VALIDATION CHECKLIST BEFORE RETURNING:
+✓ JSON is valid and parseable (no syntax errors)
+✓ Every note has pitch, startTime, duration, velocity fields
+✓ Notes are chronologically ordered by startTime
+✓ ABC notation renders correctly (test mentally)
+✓ No duplicate notes at same time (unless polyphonic)
+✓ Velocity values reflect actual audio dynamics
+✓ BPM is realistic (30-300 range)
+✓ Key signature matches note content analysis
+✓ All times and durations are positive numbers
 
-Return ONLY the JSON object. No markdown, no explanations, just pure JSON.`;
+Return ONLY the JSON object. NO markdown code blocks, NO explanations, NO extra text. Pure JSON only.`;
                 
                 // Call Gemini API
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -822,7 +908,19 @@ Return ONLY the JSON object. No markdown, no explanations, just pure JSON.`;
         
         function drawPianoRoll() {
             const canvas = document.getElementById('pianoRollCanvas');
+            if (!canvas) return;
+            
             const ctx = pianoRollContext;
+            if (!ctx) {
+                console.error('[v0] Piano roll context not initialized');
+                return;
+            }
+            
+            // Ensure canvas dimensions are set
+            if (canvas.width === 0 || canvas.height === 0) {
+                canvas.width = canvas.offsetWidth || 1200;
+                canvas.height = 450;
+            }
             
             // Clear canvas with gradient background
             const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -921,6 +1019,7 @@ Return ONLY the JSON object. No markdown, no explanations, just pure JSON.`;
                     ctx.strokeRect(x, y - height, width, height);
                 });
             }
+        }
         
         function getNoteNumber(pitch) {
             const noteMap = { 'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11, 'Db': 1, 'Eb': 3, 'Gb': 6, 'Ab': 8, 'Bb': 10 };
@@ -975,6 +1074,9 @@ Return ONLY the JSON object. No markdown, no explanations, just pure JSON.`;
             // Highlight key
             highlightKey(note);
             setTimeout(() => unhighlightKey(note), duration * 1000);
+            
+            // Show note tooltip
+            showNoteTooltip(note);
         };
         
         function highlightKey(note) {
@@ -1359,6 +1461,242 @@ Return ONLY the JSON object. No markdown, no explanations, just pure JSON.`;
                 alert('🎵 לא זוהו אקורדים (תווים בודדים בלבד)');
             }
         };
+        
+        // ============================================
+        // Note Tooltip Display
+        // ============================================
+        
+        function showNoteTooltip(pitch) {
+            const tooltip = document.getElementById('noteTooltip');
+            const symbolEl = document.getElementById('noteSymbol');
+            const nameHebrewEl = document.getElementById('noteNameHebrew');
+            const nameEnglishEl = document.getElementById('noteNameEnglish');
+            
+            // Hebrew note names mapping
+            const hebrewNames = {
+                'C': 'דו', 'C#': 'דו דיאז', 'Db': 'רה במול',
+                'D': 'רה', 'D#': 'רה דיאז', 'Eb': 'מי במול',
+                'E': 'מי',
+                'F': 'פה', 'F#': 'פה דיאז', 'Gb': 'סול במול',
+                'G': 'סול', 'G#': 'סול דיאז', 'Ab': 'לה במול',
+                'A': 'לה', 'A#': 'לה דיאז', 'Bb': 'סי במול',
+                'B': 'סי'
+            };
+            
+            // Note symbols (different shapes)
+            const noteSymbols = ['♪', '♫', '♩', '♬', '𝅘𝅥𝅮', '𝅘𝅥𝅯', '𝅘𝅥'];
+            const randomSymbol = noteSymbols[Math.floor(Math.random() * noteSymbols.length)];
+            
+            // Extract note name without octave
+            const match = pitch.match(/^([A-G][#b]?)(\d+)$/);
+            if (match) {
+                const noteName = match[1];
+                const octave = match[2];
+                
+                symbolEl.textContent = randomSymbol;
+                nameHebrewEl.textContent = hebrewNames[noteName] || noteName;
+                nameEnglishEl.textContent = pitch;
+                
+                // Position tooltip near top center
+                tooltip.style.left = '50%';
+                tooltip.style.top = '100px';
+                tooltip.style.transform = 'translateX(-50%)';
+                tooltip.classList.remove('hidden');
+                
+                // Hide after 2 seconds
+                setTimeout(() => {
+                    tooltip.classList.add('hidden');
+                }, 2000);
+            }
+        }
+        
+        // ============================================
+        // Export to MusicXML
+        // ============================================
+        
+        window.exportToMusicXML = function() {
+            alert('ייצוא MusicXML יהיה זמין בקרוב! בינתיים ניתן להדפיס או להוריד MIDI');
+        };
+        
+        // ============================================
+        // Toggle Auto Scroll
+        // ============================================
+        
+        let autoScrollEnabled = false;
+        
+        window.toggleAutoScroll = function() {
+            autoScrollEnabled = !autoScrollEnabled;
+            const btn = document.getElementById('autoScrollBtn');
+            
+            if (autoScrollEnabled) {
+                btn.classList.add('bg-green-600');
+                btn.classList.remove('bg-teal-600');
+                btn.textContent = 'גלילה אוטומטית: פעיל';
+            } else {
+                btn.classList.remove('bg-green-600');
+                btn.classList.add('bg-teal-600');
+                btn.textContent = 'גלילה אוטומטית';
+            }
+        };
+        
+        // ============================================
+        // Practice Mode
+        // ============================================
+        
+        let practiceMode = false;
+        let practiceStats = {
+            correct: 0,
+            incorrect: 0
+        };
+        
+        window.togglePracticeMode = function() {
+            practiceMode = !practiceMode;
+            const btn = document.getElementById('practiceModeBtn');
+            const statsDiv = document.getElementById('practiceStats');
+            
+            if (practiceMode) {
+                btn.classList.add('bg-green-600');
+                btn.classList.remove('bg-orange-600');
+                btn.textContent = 'מצב תרגול: פעיל';
+                statsDiv.classList.remove('hidden');
+                
+                // Reset stats
+                practiceStats = { correct: 0, incorrect: 0 };
+                updatePracticeStats();
+                
+                alert('מצב תרגול פעיל! נגן את התווים שאתה רואה על המסך');
+            } else {
+                btn.classList.remove('bg-green-600');
+                btn.classList.add('bg-orange-600');
+                btn.textContent = 'מצב תרגול';
+                statsDiv.classList.add('hidden');
+            }
+        };
+        
+        function updatePracticeStats() {
+            document.getElementById('correctNotes').textContent = practiceStats.correct;
+            document.getElementById('incorrectNotes').textContent = practiceStats.incorrect;
+            
+            const total = practiceStats.correct + practiceStats.incorrect;
+            const accuracy = total > 0 ? Math.round((practiceStats.correct / total) * 100) : 100;
+            document.getElementById('accuracyPercent').textContent = accuracy + '%';
+        }
+        
+        // ============================================
+        // Switch Visualization
+        // ============================================
+        
+        let currentVisualization = 'pianoRoll';
+        
+        window.switchVisualization = function(mode) {
+            currentVisualization = mode;
+            
+            // Hide all visualizations
+            document.getElementById('pianoRollViz').classList.add('hidden');
+            document.getElementById('noteChartViz').classList.add('hidden');
+            document.getElementById('timelineViz').classList.add('hidden');
+            
+            // Reset button styles
+            document.getElementById('vizPianoRollBtn').classList.remove('bg-blue-600');
+            document.getElementById('vizPianoRollBtn').classList.add('bg-gray-700');
+            document.getElementById('vizNoteChartBtn').classList.remove('bg-blue-600');
+            document.getElementById('vizNoteChartBtn').classList.add('bg-gray-700');
+            document.getElementById('vizTimelineBtn').classList.remove('bg-blue-600');
+            document.getElementById('vizTimelineBtn').classList.add('bg-gray-700');
+            
+            // Show selected visualization
+            if (mode === 'pianoRoll') {
+                document.getElementById('pianoRollViz').classList.remove('hidden');
+                document.getElementById('vizPianoRollBtn').classList.add('bg-blue-600');
+                document.getElementById('vizPianoRollBtn').classList.remove('bg-gray-700');
+            } else if (mode === 'noteChart') {
+                document.getElementById('noteChartViz').classList.remove('hidden');
+                document.getElementById('vizNoteChartBtn').classList.add('bg-blue-600');
+                document.getElementById('vizNoteChartBtn').classList.remove('bg-gray-700');
+                renderNoteChart();
+            } else if (mode === 'timeline') {
+                document.getElementById('timelineViz').classList.remove('hidden');
+                document.getElementById('vizTimelineBtn').classList.add('bg-blue-600');
+                document.getElementById('vizTimelineBtn').classList.remove('bg-gray-700');
+                renderTimeline();
+            }
+        };
+        
+        function renderNoteChart() {
+            if (!analysisResult || !analysisResult.notes) return;
+            
+            const canvas = document.getElementById('noteChartCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = 400;
+            
+            // Count note occurrences
+            const noteCounts = {};
+            analysisResult.notes.forEach(note => {
+                const noteName = note.pitch.replace(/\d+/, ''); // Remove octave
+                noteCounts[noteName] = (noteCounts[noteName] || 0) + 1;
+            });
+            
+            // Draw bar chart
+            const notes = Object.keys(noteCounts);
+            const maxCount = Math.max(...Object.values(noteCounts));
+            const barWidth = canvas.width / notes.length;
+            
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            notes.forEach((note, i) => {
+                const count = noteCounts[note];
+                const barHeight = (count / maxCount) * (canvas.height - 60);
+                const x = i * barWidth;
+                const y = canvas.height - barHeight - 30;
+                
+                // Draw bar with gradient
+                const gradient = ctx.createLinearGradient(x, y, x, canvas.height - 30);
+                gradient.addColorStop(0, `hsl(${i * (360 / notes.length)}, 70%, 60%)`);
+                gradient.addColorStop(1, `hsl(${i * (360 / notes.length)}, 70%, 40%)`);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x + 5, y, barWidth - 10, barHeight);
+                
+                // Draw count
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 14px Rubik';
+                ctx.textAlign = 'center';
+                ctx.fillText(count, x + barWidth / 2, y - 5);
+                
+                // Draw note name
+                ctx.fillStyle = '#aaa';
+                ctx.font = '12px Rubik';
+                ctx.fillText(note, x + barWidth / 2, canvas.height - 10);
+            });
+        }
+        
+        function renderTimeline() {
+            if (!analysisResult || !analysisResult.notes) return;
+            
+            const container = document.getElementById('timelineContent');
+            let html = '<div class="space-y-2">';
+            
+            analysisResult.notes.forEach((note, i) => {
+                const time = note.startTime.toFixed(2);
+                const duration = note.duration.toFixed(2);
+                html += `
+                    <div class="flex items-center gap-3 bg-gray-700 rounded-lg p-3">
+                        <div class="text-blue-400 font-mono text-sm w-16">${time}s</div>
+                        <div class="flex-1">
+                            <div class="font-semibold">${note.pitch}</div>
+                            <div class="text-xs text-gray-400">משך: ${duration}s | עוצמה: ${note.velocity}</div>
+                        </div>
+                        <button onclick="playNote('${note.pitch}', ${note.duration})" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm">
+                            נגן
+                        </button>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
         
         // ============================================
         // Keyboard Input (for piano)
